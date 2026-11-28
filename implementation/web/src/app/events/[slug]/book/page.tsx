@@ -37,7 +37,11 @@ export default async function BookEventPage({
           </div>
         </div>
 
-        <BookingFlow event={detail.event} venue={detail.venue} />
+        <BookingFlow
+          event={detail.event}
+          venue={detail.venue}
+          productionMode={process.env.VERCEL_ENV === "production"}
+        />
       </main>
     </div>
   );

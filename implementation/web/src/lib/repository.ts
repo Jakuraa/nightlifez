@@ -273,7 +273,9 @@ export async function listCitiesAndEvents(
 export async function getEventDetail(
   slug: string
 ): Promise<{ event: PulseEvent; venue: Venue | null } | null> {
-  const { events } = await listCitiesAndEvents({}, { includeNonPublished: true });
+  const { events } = await listCitiesAndEvents({}, {
+    includeNonPublished: process.env.VERCEL_ENV !== "production"
+  });
   const event = events.find((e) => e.slug === slug || e.id === slug);
   if (!event) return null;
 
@@ -292,8 +294,17 @@ export async function listVenues(citySlug?: string): Promise<Venue[]> {
 
   const res =
     !citySlug || citySlug === "all"
-      ? await pool.query("SELECT * FROM venues ORDER BY name ASC")
-      : await pool.query("SELECT * FROM venues WHERE city_slug = $1 ORDER BY name ASC", [citySlug]);
+      ? await pool.query(
+          process.env.VERCEL_ENV === "production"
+            ? "SELECT * FROM venues WHERE approval_status = 'APPROVED' ORDER BY name ASC"
+            : "SELECT * FROM venues ORDER BY name ASC"
+        )
+      : await pool.query(
+          process.env.VERCEL_ENV === "production"
+            ? "SELECT * FROM venues WHERE city_slug = $1 AND approval_status = 'APPROVED' ORDER BY name ASC"
+            : "SELECT * FROM venues WHERE city_slug = $1 ORDER BY name ASC",
+          [citySlug]
+        );
 
   return res.rows.map((r) => {
     const slug = String(r.slug);
@@ -336,6 +347,7 @@ export async function getVenueDetail(
 }
 
 export async function listArtists(city?: string): Promise<Artist[]> {
+  if (process.env.VERCEL_ENV === "production") return [];
   if (!city || city === "all") return SEED_ARTISTS;
   return SEED_ARTISTS.filter((a) => a.citySlug === city);
 }
@@ -451,7 +463,7 @@ export async function getActivityDetail(slug: string): Promise<Activity | null> 
 }
 
 export async function listCollections(): Promise<EditorialCollection[]> {
-  return SEED_COLLECTIONS;
+  return process.env.VERCEL_ENV === "production" ? [] : SEED_COLLECTIONS;
 }
 
 export async function expireStaleHolds(): Promise<number> {

@@ -63,7 +63,9 @@ export default async function HomePage({
 
       <main className="mx-auto max-w-7xl space-y-10 px-3 py-6 sm:px-6">
         {/* 1. Featured Hero Carousel */}
-        <HeroCarousel events={featured.length > 0 ? featured : events} />
+        {events.length > 0 ? (
+          <HeroCarousel events={featured.length > 0 ? featured : events} />
+        ) : null}
 
         {/* 2. Featured Experiences */}
         <section>

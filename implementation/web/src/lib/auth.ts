@@ -11,7 +11,11 @@ import {
 export const SESSION_COOKIE_NAME = "nlz_session";
 
 function getSigningSecret(): string {
-  return process.env.NIGHTLIFEZ_SESSION_SECRET || "nightlifez-sandbox-dev-signing-key-2026";
+  const secret = process.env.NIGHTLIFEZ_SESSION_SECRET;
+  if (process.env.VERCEL_ENV === "production" && !secret) {
+    throw new Error("NIGHTLIFEZ_SESSION_SECRET is required in Production.");
+  }
+  return secret || "nightlifez-local-development-only-signing-key";
 }
 
 export function hashPassword(password: string): string {

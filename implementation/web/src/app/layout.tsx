@@ -5,7 +5,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "NIGHTLIFEZ — Discover. Connect. Experience.",
   description:
-    "Discover. Connect. Experience. Concerts, festivals, movies, dining reservations, and city activities on NIGHTLIFEZ.",
+    "Discover and book concerts, parties, festivals, nightlife, comedy, music, sports, workshops and experiences on NIGHTLIFEZ.",
   manifest: "/manifest.webmanifest",
   icons: {
     icon: "/icon.svg",
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "NIGHTLIFEZ — Discover. Connect. Experience.",
     description:
-      "Explore curated live events, movies, dining, and city experiences on NIGHTLIFEZ.",
+      "Explore curated live events, concerts, festivals, nightlife and experiences on NIGHTLIFEZ.",
     siteName: "NIGHTLIFEZ",
     type: "website"
   }

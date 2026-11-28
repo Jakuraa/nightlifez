@@ -6,7 +6,12 @@ declare global {
 
 export function getPool(): Pool | null {
   const url = process.env.DATABASE_URL;
-  if (!url) return null;
+  if (!url) {
+    if (process.env.VERCEL_ENV === "production") {
+      throw new Error("DATABASE_URL is required in the Production environment.");
+    }
+    return null;
+  }
 
   if (!globalThis.__nightlifezPool) {
     globalThis.__nightlifezPool = new Pool({

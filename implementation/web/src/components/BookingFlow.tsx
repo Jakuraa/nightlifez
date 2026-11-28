@@ -21,9 +21,10 @@ import { VenueSectionMap } from "./VenueSectionMap";
 interface BookingFlowProps {
   event: PulseEvent;
   venue: Venue | null;
+  productionMode?: boolean;
 }
 
-export function BookingFlow({ event, venue }: BookingFlowProps) {
+export function BookingFlow({ event, venue, productionMode = false }: BookingFlowProps) {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
     event.sessions?.[0]?.id ?? null
   );
@@ -50,7 +51,9 @@ export function BookingFlow({ event, venue }: BookingFlowProps) {
   const [confirmedBooking, setConfirmedBooking] = useState<BookingRecord | null>(null);
   const [questions, setQuestions] = useState<BookingQuestion[]>([]);
   const [directUpiInfo, setDirectUpiInfo] = useState<PublicOrganiserPaymentInfo | null>(null);
-  const [selectedPaymentChannel, setSelectedPaymentChannel] = useState<"DEMO_SANDBOX" | "ORGANISER_UPI">("DEMO_SANDBOX");
+  const [selectedPaymentChannel, setSelectedPaymentChannel] = useState<"DEMO_SANDBOX" | "ORGANISER_UPI">(
+    productionMode ? "ORGANISER_UPI" : "DEMO_SANDBOX"
+  );
   const [upiTxRef, setUpiTxRef] = useState("");
   const [upiClaimToken, setUpiClaimToken] = useState<string | null>(null);
   const [walletToken, setWalletToken] = useState<string | null>(null);
@@ -259,7 +262,11 @@ export function BookingFlow({ event, venue }: BookingFlowProps) {
               ? new URLSearchParams(window.location.search).get("ref") || undefined
               : undefined,
           simulatePaymentOutcome: simulateOutcome,
-          paymentChannel: event.approvalRequired ? "DEMO_SANDBOX" : selectedPaymentChannel,
+          paymentChannel: productionMode
+            ? "ORGANISER_UPI"
+            : event.approvalRequired
+              ? "DEMO_SANDBOX"
+              : selectedPaymentChannel,
           items: selections,
           attendees: attendeesPayload
         })
@@ -1008,15 +1015,21 @@ export function BookingFlow({ event, venue }: BookingFlowProps) {
                         <option value="ORGANISER_UPI">
                           Direct UPI to {directUpiInfo.payeeDisplayName} ({directUpiInfo.upiId})
                         </option>
-                        <option value="DEMO_SANDBOX">Demo Sandbox (No Real Charge)</option>
+                        {!productionMode ? (
+                          <option value="DEMO_SANDBOX">Demo Sandbox (No Real Charge)</option>
+                        ) : null}
                       </select>
                     </label>
+                  ) : productionMode ? (
+                    <div className="rounded-xl border border-[#f59e0b] bg-[#fffbeb] px-3 py-2 text-[11px] font-semibold text-[#92400e]">
+                      Ticket sales are temporarily unavailable because this organiser has not configured direct UPI collection.
+                    </div>
                   ) : null}
                   {selectedPaymentChannel === "ORGANISER_UPI" && directUpiInfo?.upiEnabled ? (
                     <div className="rounded-xl bg-[#efeafe] px-3 py-2 text-[11px] font-semibold text-[#5b3df5]">
                       Payment goes directly to the organiser&apos;s UPI. Passes issue after organiser verifies credit.
                     </div>
-                  ) : (
+                  ) : !productionMode ? (
                     <label className="block text-xs font-bold text-[#5e6473]">
                       Sandbox Payment Adapter Mode
                       <select
@@ -1028,7 +1041,7 @@ export function BookingFlow({ event, venue }: BookingFlowProps) {
                         <option value="FAILED">Simulate Payment Decline (Test Error Handling)</option>
                       </select>
                     </label>
-                  )}
+                  ) : null}
                 </div>
               ) : null}
             </div>
@@ -1039,7 +1052,11 @@ export function BookingFlow({ event, venue }: BookingFlowProps) {
 
             <button
               type="submit"
-              disabled={submitting || breakdown.totalQuantity === 0}
+              disabled={
+                submitting ||
+                breakdown.totalQuantity === 0 ||
+                (productionMode && !event.approvalRequired && !directUpiInfo?.upiEnabled)
+              }
               className="w-full rounded-xl bg-[#5b3df5] py-3.5 text-sm font-extrabold text-white transition hover:bg-[#4328d6] disabled:cursor-not-allowed disabled:bg-[#cbd5e1]"
             >
               {submitting
@@ -1048,7 +1065,9 @@ export function BookingFlow({ event, venue }: BookingFlowProps) {
                 ? "Request Spot (Approval Required · No Charge)"
                 : selectedPaymentChannel === "ORGANISER_UPI"
                 ? "Reserve & Pay Organiser via UPI"
-                : "Confirm Demo Reservation (No Charge)"}
+                : productionMode
+                  ? "Sales temporarily unavailable"
+                  : "Confirm Demo Reservation (No Charge)"}
             </button>
           </form>
         </aside>
