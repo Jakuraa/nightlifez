@@ -396,6 +396,12 @@ CREATE TABLE IF NOT EXISTS role_assignments (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS platform_bootstrap_claims (
+  bootstrap_key TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id),
+  claimed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS staff_invitations (
   id TEXT PRIMARY KEY,
   email TEXT NOT NULL,

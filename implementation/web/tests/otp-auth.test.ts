@@ -13,13 +13,15 @@ import {
   OtpError,
   requestOtpChallenge,
   resendOtpChallenge,
-  verifyOtpChallenge
+  verifyOtpChallenge,
+  matchesInitialAdminPhone
 } from "../src/lib/otpService.ts";
 import { getSmsOtpProvider, MockSmsOtpProvider } from "../src/lib/smsProvider.ts";
 import {
   ALL_ROLES,
   normalizePhoneNumber,
-  SYNTHETIC_QA_IDENTITIES
+  SYNTHETIC_QA_IDENTITIES,
+  SYNTHETIC_QA_PHONES
 } from "../../shared/src/index.ts";
 
 test("phone normalization handles India +91, prefixes, formatting, and rejects invalid inputs", () => {
@@ -35,6 +37,16 @@ test("phone normalization handles India +91, prefixes, formatting, and rejects i
   assert.throws(() => normalizePhoneNumber("12345"), /valid/i);
   assert.throws(() => normalizePhoneNumber("98765abc01"), /digits/i);
   assert.throws(() => normalizePhoneNumber("0000000000"), /valid/i);
+});
+
+test("initial platform-admin bootstrap requires a matching verified Production phone and rejects QA numbers", () => {
+  assert.equal(matchesInitialAdminPhone("+919111222333", "production", "+91 91112 22333"), true);
+  assert.equal(matchesInitialAdminPhone("+919111222333", "preview", "+91 91112 22333"), false);
+  assert.equal(matchesInitialAdminPhone("+919111222333", "production", "+919111222334"), false);
+  assert.equal(matchesInitialAdminPhone("+919111222333", "production", "not-a-phone"), false);
+
+  const syntheticPhone = [...SYNTHETIC_QA_PHONES][0];
+  assert.equal(matchesInitialAdminPhone(syntheticPhone, "production", syntheticPhone), false);
 });
 
 test("SmsOtpProvider blocks MockSmsOtpProvider in production and uses MockSmsOtpProvider in preview/dev", async () => {
