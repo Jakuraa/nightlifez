@@ -225,7 +225,9 @@ export default async function EventDetailPage({
                   Book tickets
                 </Link>
                 <p className="mt-2 text-center text-[11px] text-[#5e6473]">
-                  Demo mode · Server-authoritative inventory
+                  {process.env.VERCEL_ENV === "production"
+                    ? "Organiser-managed availability"
+                    : "Demo mode · Server-authoritative inventory"}
                 </p>
               </div>
 

@@ -21,5 +21,8 @@
     "test:android": "npm --prefix implementation/android test",
     "test": "npm test --workspace=@nightlifez/shared && npm test --workspace=@nightlifez/web && npm --prefix implementation/android test",
     "db:migrate": "npm run db:migrate --workspace=@nightlifez/web"
+  },
+  "overrides": {
+    "postcss": "^8.5.34"
   }
 }

@@ -34,8 +34,31 @@ export const OTP_RESEND_COOLDOWN_SECONDS = 30;
 export const OTP_MAX_ATTEMPTS = 5;
 export const OTP_MAX_RESENDS = 3;
 
+/**
+ * First platform-admin bootstrap is allowed only in Production and only for
+ * the explicitly configured phone after that phone has completed OTP.
+ * Synthetic QA numbers are never eligible.
+ */
+export function matchesInitialAdminPhone(
+  verifiedPhone: string,
+  runtimeEnvironment = process.env.VERCEL_ENV,
+  configuredPhone = process.env.NIGHTLIFEZ_INITIAL_ADMIN_PHONE
+): boolean {
+  if (runtimeEnvironment !== "production" || !configuredPhone?.trim()) return false;
+  try {
+    const normalized = normalizePhoneNumber(configuredPhone);
+    return normalized === verifiedPhone && !SYNTHETIC_QA_PHONES.has(normalized);
+  } catch {
+    return false;
+  }
+}
+
 function getOtpHmacSecret(): string {
-  return process.env.NIGHTLIFEZ_SESSION_SECRET || "nightlifez-sandbox-dev-signing-key-2026";
+  const secret = process.env.NIGHTLIFEZ_SESSION_SECRET;
+  if (process.env.VERCEL_ENV === "production" && !secret) {
+    throw new Error("NIGHTLIFEZ_SESSION_SECRET is required in Production.");
+  }
+  return secret || "nightlifez-local-development-only-signing-key";
 }
 
 export function generateSixDigitOtp(): string {
@@ -512,6 +535,57 @@ export async function verifyOtpChallenge(rawInput: unknown): Promise<OtpVerifyRe
     }
 
     const user = mapUserRow(userRow);
+
+    // One-time first-admin claim. The verified phone must match the explicitly
+    // configured Production phone. An advisory transaction lock prevents two
+    // simultaneous OTP verifications from creating competing first admins.
+    if (matchesInitialAdminPhone(phone)) {
+      await client.query(
+        "SELECT pg_advisory_xact_lock(hashtext($1))",
+        ["nightlifez:bootstrap:initial-platform-admin"]
+      );
+      const activeAdminRes = await client.query(
+        `SELECT u.id
+         FROM role_assignments ra
+         JOIN users u ON u.id = ra.user_id
+         WHERE ra.role = 'platform_super_admin'
+           AND u.status <> 'SUSPENDED'
+         LIMIT 1`
+      );
+      const existingAdminId = activeAdminRes.rows[0]?.id as string | undefined;
+      const claimRes = await client.query(
+        `INSERT INTO platform_bootstrap_claims (bootstrap_key, user_id)
+         VALUES ($1, $2)
+         ON CONFLICT (bootstrap_key) DO NOTHING
+         RETURNING bootstrap_key`,
+        ["initial_platform_admin", existingAdminId ?? user.id]
+      );
+
+      if (claimRes.rowCount && !existingAdminId) {
+        await client.query(
+          `INSERT INTO role_assignments (id, user_id, role, granted_by)
+           VALUES ($1, $2, 'platform_super_admin', $3)`,
+          ["ra_" + crypto.randomUUID().slice(0, 12), user.id, user.id]
+        );
+        await client.query(
+          `INSERT INTO audit_logs
+            (id, actor_user_id, actor_email, actor_role, action, target_type, target_id, before_json, after_json)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb)`,
+          [
+            "aud_" + crypto.randomUUID().slice(0, 12),
+            user.id,
+            user.email ?? user.phone,
+            "platform_super_admin",
+            "BOOTSTRAP_INITIAL_ADMIN",
+            "user",
+            user.id,
+            JSON.stringify({ roles: ["attendee"] }),
+            JSON.stringify({ roles: ["attendee", "platform_super_admin"] })
+          ]
+        );
+      }
+    }
+
     await client.query(
       "INSERT INTO sessions (id, user_id, token_hash, expires_at) VALUES ($1,$2,$3,$4)",
       [sessionId, user.id, tokenHash, sessionExpiresAt]
